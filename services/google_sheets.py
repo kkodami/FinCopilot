@@ -2,13 +2,19 @@ import gspread
 from google.oauth2.service_account import Credentials
 from config import config
 from models.transaction import Transaction
+import os
 
 class GoogleSheetsService:
     def __init__(self):
         self.scope = ['https://www.googleapis.com/auth/spreadsheets']
-        self.creds = Credentials.from_service_account_file(
-            config.GOOGLE_SHEETS_CREDENTIALS, scopes=self.scope
-        )
+        creds_path = config.GOOGLE_SHEETS_CREDENTIALS
+        if not creds_path:
+            raise RuntimeError(
+                "GOOGLE_SHEETS_CREDENTIALS не задан. Установите в .env путь к JSON сервисного аккаунта."
+            )
+        if not os.path.exists(creds_path):
+            raise RuntimeError(f"Файл учетных данных Google не найден: {creds_path}")
+        self.creds = Credentials.from_service_account_file(creds_path, scopes=self.scope)
         self.client = gspread.authorize(self.creds)
         self.sheet = self.client.open_by_key(config.SPREADSHEET_ID)
     
