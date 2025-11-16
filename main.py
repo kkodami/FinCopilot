@@ -21,13 +21,13 @@ async def main():
     dp.include_router(advanced_handlers.router)  # Новый роутер с расширенной функциональностью
     
     # Инициализируем структуру таблицы при старте
-    try:
-        from services.google_sheets import GoogleSheetsService
-        sheets = GoogleSheetsService()
-        await sheets.initialize_sheet_structure()
-        logging.info("Google Sheets structure initialized")
-    except Exception as e:
-        logging.warning(f"Could not initialize sheets structure: {e}")
+    # try:
+    #     from services.google_sheets import GoogleSheetsService
+    #     sheets = GoogleSheetsService()
+    #     await sheets.initialize_sheet_structure()
+    #     logging.info("Google Sheets structure initialized")
+    # except Exception as e:
+    #     logging.warning(f"Could not initialize sheets structure: {e}")
     
     try:
         await dp.start_polling(bot)
