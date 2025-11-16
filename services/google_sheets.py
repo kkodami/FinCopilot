@@ -2,11 +2,12 @@ import gspread
 from google.oauth2.service_account import Credentials
 from config import config
 from models.transaction import Transaction
+from models.budget import Budget
 import os
 from datetime import datetime, timedelta
 import logging
+import uuid
 
-# Инициализация логгера
 logger = logging.getLogger(__name__)
 
 class GoogleSheetsService:
@@ -63,17 +64,31 @@ class GoogleSheetsService:
     async def initialize_sheet_structure(self):
         """Инициализирует правильную структуру таблицы"""
         try:
-            worksheet = self.sheet.worksheet("Transactions")
-            
-            # Очищаем и создаем правильные заголовки
-            worksheet.clear()
+            # Лист транзакций
+            try:
+                worksheet = self.sheet.worksheet("Transactions")
+            except:
+                worksheet = self.sheet.add_worksheet(title="Transactions", rows="1000", cols="10")
             
             headers = [
                 "uuid", "date", "type", "category", "subcategory",
                 "amount", "currency", "description", "source", "created_at"
             ]
-            
+            worksheet.clear()
             worksheet.append_row(headers)
+            
+            # Лист бюджетов
+            try:
+                budget_ws = self.sheet.worksheet("Budgets")
+            except:
+                budget_ws = self.sheet.add_worksheet(title="Budgets", rows="100", cols="6")
+            
+            budget_headers = [
+                "user_id", "category", "amount", "period", "created_at", "updated_at"
+            ]
+            budget_ws.clear()
+            budget_ws.append_row(budget_headers)
+            
             logger.info("Sheet structure initialized successfully")
             return True
         except Exception as e:
@@ -133,17 +148,21 @@ class GoogleSheetsService:
             except:
                 return []
     
-    async def get_financial_stats(self, period: str):
+    async def get_financial_stats(self, period: str, start_date: str = None, end_date: str = None):
         """Получает финансовую статистику за период"""
         try:
             # Определяем период
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            if period == "month":
-                start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-            elif period == "week":
-                start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+            if period == "custom" and start_date and end_date:
+                # Используем переданные даты
+                pass
             else:
-                start_date = "2000-01-01"
+                end_date = datetime.now().strftime('%Y-%m-%d')
+                if period == "month":
+                    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+                elif period == "week":
+                    start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                else:
+                    start_date = "2000-01-01"
             
             transactions = await self.get_transactions(start_date, end_date)
             
@@ -153,7 +172,7 @@ class GoogleSheetsService:
             # Обрабатываем транзакции
             incomes = []
             expenses = []
-
+            
             for t in transactions:
                 try:
                     trans_type = str(t.get('type', '')).strip().lower()
@@ -220,4 +239,118 @@ class GoogleSheetsService:
             'incomes': [],
             'expenses': []
         }
-
+    
+    async def search_transactions(self, query: str, user_id: int = None):
+        """Поиск транзакций по описанию и категории"""
+        transactions = await self.get_transactions()
+        results = []
+        
+        query_lower = query.lower()
+        for t in transactions:
+            description = t.get('description', '').lower()
+            category = t.get('category', '').lower()
+            
+            if (query_lower in description or 
+                query_lower in category or 
+                query_lower in str(t.get('amount', '')).lower()):
+                results.append(t)
+        
+        return results
+    
+    async def get_transactions_by_period(self, start_date: str, end_date: str):
+        """Получает транзакции за произвольный период"""
+        return await self.get_transactions(start_date, end_date)
+    
+    async def set_budget(self, budget: Budget):
+        """Устанавливает бюджет для категории"""
+        worksheet = self.sheet.worksheet("Budgets")
+        
+        # Проверяем существующий бюджет
+        try:
+            records = worksheet.get_all_records()
+            for i, record in enumerate(records, start=2):
+                if (record['user_id'] == budget.user_id and 
+                    record['category'] == budget.category and 
+                    record['period'] == budget.period):
+                    # Обновляем существующий
+                    worksheet.update_cell(i, 3, budget.amount)  # amount
+                    worksheet.update_cell(i, 6, budget.updated_at)  # updated_at
+                    return True
+        except:
+            pass
+        
+        # Создаем новый
+        row = [
+            budget.user_id,
+            budget.category,
+            budget.amount,
+            budget.period,
+            budget.created_at,
+            budget.updated_at
+        ]
+        worksheet.append_row(row)
+        return True
+    
+    async def get_budgets(self, user_id: int):
+        """Получает бюджеты пользователя"""
+        try:
+            worksheet = self.sheet.worksheet("Budgets")
+            records = worksheet.get_all_records()
+            return [r for r in records if r['user_id'] == user_id]
+        except:
+            return []
+    
+    async def get_budget_status(self, user_id: int, period: str = "month"):
+        """Получает статус бюджетов с анализом перерасходов"""
+        budgets = await self.get_budgets(user_id)
+        stats = await self.get_financial_stats(period)
+        
+        status = []
+        for budget in budgets:
+            category = budget['category']
+            budget_amount = float(budget['amount'])
+            
+            # Сумма расходов по категории
+            expense_amount = stats.get('expense_by_category', {}).get(category, 0)
+            
+            status.append({
+                'category': category,
+                'budget': budget_amount,
+                'spent': expense_amount,
+                'remaining': budget_amount - expense_amount,
+                'overspent': expense_amount > budget_amount
+            })
+        
+        return status
+    
+    async def edit_transaction(self, transaction_uuid: str, updates: dict):
+        """Редактирует транзакцию"""
+        worksheet = self.sheet.worksheet("Transactions")
+        
+        try:
+            # Находим транзакцию
+            cell = worksheet.find(transaction_uuid)
+            row = cell.row
+            headers = worksheet.row_values(1)
+            
+            for key, value in updates.items():
+                if key in headers:
+                    col_idx = headers.index(key) + 1
+                    worksheet.update_cell(row, col_idx, value)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error editing transaction: {e}")
+            return False
+    
+    async def delete_transaction(self, transaction_uuid: str):
+        """Удаляет транзакцию"""
+        worksheet = self.sheet.worksheet("Transactions")
+        
+        try:
+            cell = worksheet.find(transaction_uuid)
+            worksheet.delete_rows(cell.row)
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting transaction: {e}")
+            return False

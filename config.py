@@ -12,7 +12,7 @@ class Config:
     GOOGLE_SHEETS_CREDENTIALS: str = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
     SPREADSHEET_ID: str = os.getenv("SPREADSHEET_ID")
     
-    # Настройки OpenRouter - используем бесплатную модель
+    # Настройки OpenRouter
     OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "mistralai/mistral-7b-instruct:free")
     OPENROUTER_REFERER: str = os.getenv("OPENROUTER_REFERER", "https://github.com/fincopilot-bot")
     OPENROUTER_TITLE: str = os.getenv("OPENROUTER_TITLE", "FinCopilot")
@@ -20,5 +20,8 @@ class Config:
     # Настройки пользователей
     DEFAULT_CREDIT_LIMIT: float = float(os.getenv("DEFAULT_CREDIT_LIMIT", "100"))
     PREMIUM_CREDIT_LIMIT: float = float(os.getenv("PREMIUM_CREDIT_LIMIT", "1000"))
+    
+    # Флаг для AI
+    ENABLE_AI: bool = os.getenv("ENABLE_AI", "true").lower() == "true"
 
 config = Config()
