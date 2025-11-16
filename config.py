@@ -13,7 +13,7 @@ class Config:
     SPREADSHEET_ID: str = os.getenv("SPREADSHEET_ID")
     
     # Настройки OpenRouter - используем бесплатную модель
-    OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "google/gemma-7b-it:free")
+    OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "mistralai/mistral-7b-instruct:free")
     OPENROUTER_REFERER: str = os.getenv("OPENROUTER_REFERER", "https://github.com/fincopilot-bot")
     OPENROUTER_TITLE: str = os.getenv("OPENROUTER_TITLE", "FinCopilot")
     
