@@ -36,3 +36,21 @@ async def cmd_help(message: Message):
         "/help - эта справка\n"
         "/categories - список категорий"
     )
+
+@router.message(Command("insights"))
+async def cmd_insights(message: Message):
+    """Показывает аналитические инсайты"""
+    try:
+        from services.google_sheets import GoogleSheetsService
+        from services.openrouter import OpenRouterService
+        
+        sheets = GoogleSheetsService()
+        openrouter = OpenRouterService()
+        
+        transactions = await sheets.get_transactions()
+        insights = await openrouter.generate_insights(transactions)
+        
+        await message.answer(f"💡 Финансовые инсайты:\n\n{insights}")
+        
+    except Exception as e:
+        await message.answer(f"❌ Ошибка генерации инсайтов: {str(e)}")

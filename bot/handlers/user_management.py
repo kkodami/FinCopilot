@@ -11,19 +11,14 @@ async def show_usage(message: Message):
     user_manager = UserManager()
     
     try:
-        usage = await user_manager.get_user_usage(message.from_user.id)
-        
-        if "error" in usage:
-            await message.answer("📊 Вы используете общий API ключ. Индивидуальная статистика недоступна.")
-        else:
-            await message.answer(
-                f"📊 Ваша статистика использования:\n\n"
-                f"• Использовано в этом месяце: ${usage.get('usage_monthly', 0):.4f}\n"
-                f"• Осталось кредитов: ${usage.get('limit_remaining', 0):.2f}\n"
-                f"• Лимит: ${usage.get('limit', 0):.2f}\n"
-                f"• Использовано сегодня: ${usage.get('usage_daily', 0):.4f}\n\n"
-                f"💡 Для увеличения лимита обратитесь к администратору."
-            )
+        # Для бесплатной версии показываем общую информацию
+        await message.answer(
+            "📊 Вы используете бесплатную версию FinCopilot\n\n"
+            "• 🤖 Используется общий API ключ\n"
+            "• 💰 Все функции доступны бесплатно\n"
+            "• 📈 Ограничения: стандартные лимиты OpenRouter\n\n"
+            "💡 Для увеличения лимитов можете получить свой API ключ на openrouter.ai"
+        )
             
     except Exception as e:
         await message.answer(f"❌ Ошибка получения статистики: {str(e)}")
@@ -36,9 +31,9 @@ async def show_profile(message: Message):
     try:
         user = await user_manager.get_or_create_user(
             message.from_user.id,
-            message.from_user.username,
+            message.from_user.username or "",
             message.from_user.first_name,
-            message.from_user.last_name
+            message.from_user.last_name or ""
         )
         
         profile_text = (
@@ -46,8 +41,7 @@ async def show_profile(message: Message):
             f"• ID: {user.user_id}\n"
             f"• Имя: {user.first_name}\n"
             f"• Username: {user.username or 'не указан'}\n"
-            f"• Статус: {'💎 Премиум' if user.is_premium else '🔓 Базовый'}\n"
-            f"• Лимит кредитов: ${user.credit_limit:.2f}\n"
+            f"• Статус: 🆓 Бесплатный\n"
             f"• Зарегистрирован: {user.created_at[:10] if user.created_at else 'неизвестно'}\n"
         )
         
@@ -55,3 +49,16 @@ async def show_profile(message: Message):
         
     except Exception as e:
         await message.answer(f"❌ Ошибка получения профиля: {str(e)}")
+
+@router.message(Command("status"))
+async def show_status(message: Message):
+    """Показывает статус системы"""
+    await message.answer(
+        "🟢 FinCopilot работает в бесплатном режиме\n\n"
+        "• 🤖 AI: OpenRouter (бесплатные модели)\n"
+        "• 📊 Хранение: Google Sheets\n"
+        "• 💰 Стоимость: бесплатно\n\n"
+        "Для начала работы просто напишите:\n"
+        "• 'расход 2500 на рекламу'\n"
+        "• 'доход 15000 за консультацию'"
+    )

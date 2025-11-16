@@ -3,6 +3,7 @@ from google.oauth2.service_account import Credentials
 from config import config
 from models.transaction import Transaction
 import os
+from datetime import datetime, timedelta
 
 class GoogleSheetsService:
     def __init__(self):
@@ -54,17 +55,40 @@ class GoogleSheetsService:
     
     async def get_financial_stats(self, period: str):
         """Получает финансовую статистику за период"""
-        # Здесь можно добавить сложную логику агрегации
-        transactions = await self.get_transactions()
+        # Определяем период
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        if period == "month":
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        elif period == "week":
+            start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        else:
+            # По умолчанию за все время
+            start_date = "2000-01-01"
         
-        incomes = [t for t in transactions if t['type'] == 'income']
-        expenses = [t for t in transactions if t['type'] == 'expense']
+        transactions = await self.get_transactions(start_date, end_date)
+        
+        incomes = [t for t in transactions if t.get('type') == 'income']
+        expenses = [t for t in transactions if t.get('type') == 'expense']
+        
+        # Группируем по категориям
+        income_by_category = {}
+        expense_by_category = {}
+        
+        for t in incomes:
+            category = t.get('category', 'прочее')
+            income_by_category[category] = income_by_category.get(category, 0) + float(t.get('amount', 0))
+        
+        for t in expenses:
+            category = t.get('category', 'прочее')
+            expense_by_category[category] = expense_by_category.get(category, 0) + float(t.get('amount', 0))
         
         return {
-            'total_income': sum(t['amount'] for t in incomes),
-            'total_expense': sum(t['amount'] for t in expenses),
-            'profit': sum(t['amount'] for t in incomes) - sum(t['amount'] for t in expenses),
+            'total_income': sum(float(t.get('amount', 0)) for t in incomes),
+            'total_expense': sum(float(t.get('amount', 0)) for t in expenses),
+            'profit': sum(float(t.get('amount', 0)) for t in incomes) - sum(float(t.get('amount', 0)) for t in expenses),
             'transactions_count': len(transactions),
+            'income_by_category': income_by_category,
+            'expense_by_category': expense_by_category,
             'incomes': incomes,
             'expenses': expenses
         }

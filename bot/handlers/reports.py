@@ -22,15 +22,7 @@ async def generate_report(message: Message):
         # Генерируем отчет с помощью LLM
         report = await openrouter.generate_report(stats, "последний месяц")
         
-        await message.answer(
-            f"📊 Финансовый отчет за последний месяц:\n\n"
-            f"{report}\n\n"
-            f"💡 Ключевые цифры:\n"
-            f"• Доходы: {stats['total_income']:.2f} руб\n"
-            f"• Расходы: {stats['total_expense']:.2f} руб\n"
-            f"• Прибыль: {stats['profit']:.2f} руб\n"
-            f"• Операций: {stats['transactions_count']}"
-        )
+        await message.answer(report)
         
     except Exception as e:
         await message.answer(f"❌ Ошибка генерации отчета: {str(e)}")
@@ -44,13 +36,46 @@ async def show_profit(message: Message):
         sheets = GoogleSheetsService()
         stats = await sheets.get_financial_stats("month")
         
+        profit = stats['profit']
+        profit_emoji = "📈" if profit > 0 else "📉" if profit < 0 else "➡️"
+        
         await message.answer(
             f"💰 Прибыль за последний месяц:\n"
             f"• Доходы: {stats['total_income']:.2f} руб\n"
             f"• Расходы: {stats['total_expense']:.2f} руб\n"
-            f"• Прибыль: {stats['profit']:.2f} руб\n"
-            f"• Рентабельность: {(stats['profit']/stats['total_income']*100 if stats['total_income'] > 0 else 0):.1f}%"
+            f"• {profit_emoji} Прибыль: {profit:.2f} руб\n"
+            f"• Рентабельность: {(profit/stats['total_income']*100 if stats['total_income'] > 0 else 0):.1f}%"
         )
+        
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
+
+@router.message(Command("month"))
+async def monthly_report(message: Message):
+    """Отчет за текущий месяц"""
+    try:
+        sheets = GoogleSheetsService()
+        openrouter = OpenRouterService()
+        
+        stats = await sheets.get_financial_stats("month")
+        report = await openrouter.generate_report(stats, "текущий месяц")
+        
+        await message.answer(report)
+        
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
+
+@router.message(Command("week"))
+async def weekly_report(message: Message):
+    """Отчет за неделю"""
+    try:
+        sheets = GoogleSheetsService()
+        openrouter = OpenRouterService()
+        
+        stats = await sheets.get_financial_stats("week")
+        report = await openrouter.generate_report(stats, "последнюю неделю")
+        
+        await message.answer(report)
         
     except Exception as e:
         await message.answer(f"❌ Ошибка: {str(e)}")
