@@ -153,10 +153,10 @@ class GoogleSheetsService:
             # Обрабатываем транзакции
             incomes = []
             expenses = []
-            
+
             for t in transactions:
                 try:
-                    trans_type = t.get('type', '')
+                    trans_type = str(t.get('type', '')).strip().lower()
                     amount_str = t.get('amount', '0')
                     
                     # Преобразуем сумму в число
@@ -165,13 +165,17 @@ class GoogleSheetsService:
                     except (ValueError, TypeError):
                         continue
                     
-                    if trans_type.lower() in ['income', 'доход']:
+                    # Расширенная проверка типа транзакции
+                    if any(income_word in trans_type for income_word in ['income', 'доход', 'приход']):
                         incomes.append({'amount': amount, 'category': t.get('category', 'прочее')})
-                    elif trans_type.lower() in ['expense', 'расход']:
+                    elif any(expense_word in trans_type for expense_word in ['expense', 'расход', 'трата', 'затрата']):
                         expenses.append({'amount': amount, 'category': t.get('category', 'прочее')})
+                    else:
+                        # Если тип не распознан, логируем для отладки
+                        logger.warning(f"Unknown transaction type: '{trans_type}' in transaction: {t}")
                         
                 except Exception as e:
-                    logger.warning(f"Error processing transaction: {e}")
+                    logger.warning(f"Error processing transaction: {e}, transaction: {t}")
                     continue
             
             # Группируем по категориям
@@ -216,3 +220,4 @@ class GoogleSheetsService:
             'incomes': [],
             'expenses': []
         }
+

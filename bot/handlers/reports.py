@@ -79,3 +79,32 @@ async def weekly_report(message: Message):
         
     except Exception as e:
         await message.answer(f"❌ Ошибка: {str(e)}")
+
+# Добавьте в reports.py
+@router.message(Command("debug"))
+async def debug_sheet(message: Message):
+    """Отладочная информация о структуре данных"""
+    try:
+        sheets = GoogleSheetsService()
+        worksheet = sheets.sheet.worksheet("Transactions")
+        
+        # Получаем заголовки
+        headers = worksheet.row_values(1)
+        
+        # Получаем несколько строк данных
+        data = worksheet.get_all_values()
+        
+        debug_info = (
+            f"📋 Отладочная информация:\n\n"
+            f"• Заголовки: {headers}\n"
+            f"• Всего строк: {len(data)}\n"
+            f"• Первые 3 записи:\n"
+        )
+        
+        for i, row in enumerate(data[1:4], 1):
+            debug_info += f"  {i}. {row}\n"
+        
+        await message.answer(debug_info)
+        
+    except Exception as e:
+        await message.answer(f"❌ Ошибка отладки: {str(e)}")
